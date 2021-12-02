@@ -49,6 +49,18 @@ void writeCenteredAt(char c, int xPos, int yPos)
     writeCenteredAt(text.c_str(), xPos, yPos);
 }
 
+// makes and displays an icon centered at (xPos, yPos)
+FEHIcon::Icon iconCenteredAt(char *text, int xPos, int yPos, int fontColor, int borderColor=BLACK)
+{
+    xPos -= strlen(text) * CHAR_WIDTH/2;
+    yPos -= CHAR_HEIGHT/2;
+
+    FEHIcon::Icon button;
+    button.SetProperties(text, xPos, yPos, strlen(text)*CHAR_WIDTH, CHAR_HEIGHT, borderColor, fontColor);
+    button.Draw();
+    return button;
+}
+
 // set LCD font color to random color
 void setRandomFontColor(){
     int r=getRand();
@@ -165,8 +177,22 @@ void displayInstructions(){
 // display "set difficulty" message and wait for "quit" button press
 void setDifficulty(){
     LCD.Clear();
-    writeCenteredAt("Difficulty Here",XLIM/3,20);
-    waitForButton("Quit", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT);
+    FEHIcon::Icon difficultyButton = iconCenteredAt("Difficulty", XLIM/2, YLIM/2, WHITE);
+    FEHIcon::Icon quitButton = iconCenteredAt("QUIT", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT, WHITE);
+    while (true)
+    {
+        float x, y;
+        while(!LCD.Touch(&x, &y));
+        if (difficultyButton.Pressed(x,y,0))
+        {
+            //***WIP*** change difficulty
+            difficultyButton.ChangeLabelString("Easy");
+        }
+        else if (quitButton.Pressed(x,y,0))
+        {
+            break;
+        }
+    }
     return;
 }
 
