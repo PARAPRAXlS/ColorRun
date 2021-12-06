@@ -295,6 +295,7 @@ void waitForButton(char *text, int xPos, int yPos){
     }
 }
 
+//pauses until button is clicked
 void waitForIconPress(FEHIcon::Icon button){
     int touchX,touchY;
     while (1)
