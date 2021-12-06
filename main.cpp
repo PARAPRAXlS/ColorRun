@@ -1,11 +1,18 @@
 #include <FEHLCD.h>
 #include <FEHUtility.h>
 #include <FEHRandom.h>
+#include <FEHSD.h>
 #include <string>
 #include <iostream>
 #include <cmath>
+#include <vector>
 
 using namespace std;
+
+struct LeaderboardScore{
+    char initials[4];
+    int score;
+};
 
 // Proteus display pixel limits
 #define XLIM 319
@@ -295,7 +302,6 @@ void waitForButton(char *text, int xPos, int yPos){
     }
 }
 
-//pauses until button is clicked
 void waitForIconPress(FEHIcon::Icon button){
     int touchX,touchY;
     while (1)
@@ -320,6 +326,7 @@ void initializeToZero(int arr[screenRows][screenColumns], int rows = screenRows,
 }
 
 // DRAWING FUNCTIONS FOR GAMEPLAY
+
 
 // draws single cloud centered at xPos and yPos.
 void drawCloudCenteredAt(int clouds[screenRows][screenColumns], int xPos, int yPos, int width, int height, int color, int distance){
@@ -486,7 +493,7 @@ void yShiftArray(int arr[screenRows][screenColumns], int yShift)
 // updates sprite position to perform jump animation
 float getYShift(int sprite[screenRows][screenColumns], float airTime)
 {
-    float t = airTime;
+    float t = airTime*5;
 
     float stretch = 0.08;
     float yShift = 50.25;
@@ -567,6 +574,8 @@ void moveLeft(int screen[screenRows][screenColumns], int spaces)
 void play(){
     
     LCD.Clear();
+
+    int score = 0;
     
     int screenDrawSleep=1;
 
@@ -620,6 +629,8 @@ void play(){
     float airTime=-1;
 
     while(flag){
+
+        score += 1;
         
         if(loopCounter%(100-backgroundVelocity)==0){
             moveLeft(background,1);
@@ -630,14 +641,14 @@ void play(){
         }
 
         if(loopCounter%(100-groundVelocity)==0){
-            moveLeft(ground,1);
+            moveLeft(ground,3);
         }
 
         initializeToZero(sprite);
         if(airTime>0)
         {
             int yShift = getYShift(sprite, airTime);
-            if(yShift==0){
+            if(yShift<=0){
                 airTime=-1;
                 }
             else {
@@ -656,6 +667,13 @@ void play(){
 
         displayScreen(screen);
 
+        LCD.SetFontColor(WHITE);
+        writeCenteredAt("Score:", XLIM/5, 10);
+        LCD.SetFontColor(BLACK);
+        LCD.FillRectangle(XLIM/5+CHAR_WIDTH*3.5, 0, 200, 18);
+        LCD.SetFontColor(WHITE);
+        writeCenteredAt(to_string(score).c_str(), XLIM/5+CHAR_WIDTH*7, 10);
+
         Sleep(screenDrawSleep);
         loopCounter++;
         loopCounter%=10;
@@ -673,9 +691,106 @@ void play(){
             }
         }
     }
-    
+
     FEHIcon::Icon quitButton = iconCornerAt("QUIT", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT, WHITE);
-    waitForIconPress(quitButton);
+
+    int characterInts[3];
+    char characterChars[3];
+    char characterStrings[3][2];
+    char characterStringFinal[4];
+    characterStringFinal[3] = '\0';
+
+    for (int i = 0; i < 3; i++)
+    {
+        characterInts[i] = 65;
+        characterChars[i] = (char)characterInts[i];
+        characterStringFinal[i] = characterChars[i];
+        characterStrings[i][0] = characterChars[i];
+        characterStrings[i][1] = '\0';
+    }
+
+    LCD.SetFontColor(BLACK);
+    LCD.FillRectangle(XLIM/2-CHAR_WIDTH*1.5, YLIM/2-CHAR_WIDTH/2-1, CHAR_WIDTH*3, CHAR_HEIGHT);
+    FEHIcon::Icon character1 = iconCenteredAt(characterStrings[0], XLIM/2-CHAR_WIDTH, YLIM/2, WHITE);
+    FEHIcon::Icon character2 = iconCenteredAt(characterStrings[1], XLIM/2, YLIM/2, WHITE);
+    FEHIcon::Icon character3 = iconCenteredAt(characterStrings[2], XLIM/2+CHAR_WIDTH, YLIM/2, WHITE);
+
+    int touchX, touchY;
+    while (1)
+    {
+        if (LCD.Touch(&touchX,&touchY))
+        {
+            if (quitButton.Pressed(touchX,touchY,1))
+            {
+                break;
+            }
+            else if (character1.Pressed(touchX,touchY,1))
+            {
+                if (characterInts[0] < 90)
+                    characterInts[0] += 1;
+                else
+                    characterInts[0] = 65;
+                characterChars[0] = (char)characterInts[0];
+                characterStringFinal[0] = characterChars[0];
+                characterStrings[0][0] = characterChars[0];
+                character1.ChangeLabelString(characterStrings[0]);
+            }
+            else if (character2.Pressed(touchX,touchY,1))
+            {
+                if (characterInts[1] < 90)
+                    characterInts[1] += 1;
+                else
+                    characterInts[1] = 65;
+                characterChars[1] = (char)characterInts[1];
+                characterStringFinal[1] = characterChars[1];
+                characterStrings[1][0] = characterChars[1];
+                character2.ChangeLabelString(characterStrings[1]);
+            }
+            else if (character3.Pressed(touchX,touchY,1))
+            {
+                if (characterInts[2] < 90)
+                    characterInts[2] += 1;
+                else
+                    characterInts[2] = 65;
+                characterChars[2] = (char)characterInts[2];
+                characterStringFinal[2] = characterChars[2];
+                characterStrings[2][0] = characterChars[2];
+                character3.ChangeLabelString(characterStrings[2]);
+            }
+            Sleep(200);
+        }
+    }
+
+    FEHFile *scoreptr = SD.FOpen("scores.txt", "r");
+    vector<LeaderboardScore> scoresVec;
+    LeaderboardScore temp;
+    while(SD.FScanf(scoreptr, "%d%s", &(temp.score), &(temp.initials)) != EOF)
+    {
+        scoresVec.push_back(temp);
+    }
+    SD.FClose(scoreptr);
+
+    scoreptr = SD.FOpen("scores.txt", "w");
+    int scoreWritten = 0;
+    for (int j = 0; j < scoresVec.size(); j++)
+    {
+        if (score > (scoresVec.at(j)).score && !scoreWritten)
+        {
+            SD.FPrintf(scoreptr, "%d\t%s\n", score, characterStringFinal);
+            j--;
+            scoreWritten = 1;
+        }
+        else
+        {
+            SD.FPrintf(scoreptr, "%d\t%s\n", (scoresVec.at(j)).score, (scoresVec.at(j)).initials);
+        }
+    }
+    
+    if (!scoreWritten)
+    {
+        SD.FPrintf(scoreptr, "%d\t%s\n", score, characterStringFinal);
+    }
+    SD.FClose(scoreptr);
     
     return;
 }
@@ -760,7 +875,24 @@ void setDifficulty(){
 // display "leaderboard" placeholder and wait for "quit" button press
 void displayLeaderboard(){
     LCD.Clear();
-    writeCenteredAt("Leaderboard Here",XLIM/3,20);
+
+    FEHFile *scoreptr = SD.FOpen("scores.txt", "r");
+    int scoreHolder;
+    char initialHolder[10];
+    for (int i = 1; i <= 14; i++)
+    {
+        if (SD.FScanf(scoreptr, "%d%s", &scoreHolder, &initialHolder) == EOF)
+        {
+            break;
+        }
+        LCD.WriteAt(i, 0, (i-1)*CHAR_HEIGHT);
+        LCD.WriteAt('.', CHAR_WIDTH*1*to_string(i).length(), (i-1)*CHAR_HEIGHT);
+        LCD.WriteAt(initialHolder, CHAR_WIDTH*3, (i-1)*CHAR_HEIGHT);
+        LCD.WriteAt(scoreHolder, CHAR_WIDTH*8, (i-1)*CHAR_HEIGHT);
+    }
+
+    SD.FClose(scoreptr);
+
     FEHIcon::Icon quitButton = iconCornerAt("QUIT", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT, GRAY);
     waitForIconPress(quitButton);
     return;
